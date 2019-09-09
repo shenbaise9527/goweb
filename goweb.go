@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-07 22:09:37
+ * @Modified    : 2019-09-09 23:20:22
  * @version     : 1.0
  * @Description :
  */
@@ -72,37 +72,39 @@ func Encrypt(plaintext string) string {
 }
 
 func errmsg(c *gin.Context) {
+	_, err := SessionByContext(c)
 	msg := c.Query("msg")
-	//c.HTML(http.StatusOK, "err", msg)
-	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/error.html"}
-	t := template.Must(template.ParseFiles(files...))
-	t.ExecuteTemplate(c.Writer, "layout", msg)
+	var files []string
+	if err != nil {
+		files = []string{"templates/layout.html", "templates/public.navbar.html", "templates/error.html"}
+	} else {
+		files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/error.html"}
+	}
+
+	execTemplate(c, files, msg)
 }
 
 func index(c *gin.Context) {
 	threads, err := Threads()
 	if err != nil {
 		log.Printf("Failed to load threads: %v", err)
+		jumptoerror(c, "Failed to load threads.")
 		return
 	}
 
 	//c.HTML(http.StatusOK, "public_index", threads)
 	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/index.html"}
-	t := template.Must(template.ParseFiles(files...))
-	t.ExecuteTemplate(c.Writer, "layout", threads)
+	execTemplate(c, files, threads)
 }
 
 func login(c *gin.Context) {
 	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/login.html"}
-	t := template.New("layout")
-	t = template.Must(t.ParseFiles(files...))
-	t.Execute(c.Writer, nil)
+	execTemplate(c, files, nil)
 }
 
 func signup(c *gin.Context) {
 	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/signup.html"}
-	t := template.Must(template.ParseFiles(files...))
-	t.ExecuteTemplate(c.Writer, "layout", nil)
+	execTemplate(c, files, nil)
 }
 
 func signupAccount(c *gin.Context) {
@@ -115,6 +117,9 @@ func signupAccount(c *gin.Context) {
 
 	if err := u.Create(); err != nil {
 		log.Printf("Failed to create user: %v", err)
+		jumptoerror(c, "Failed to create user.")
+
+		return
 	}
 
 	c.Redirect(http.StatusFound, "/login")
@@ -125,16 +130,34 @@ func authenticate(c *gin.Context) {
 	user, err := UserByEmail(email)
 	if err != nil {
 		log.Printf("Failed to query user: %v", err)
-		c.Redirect(http.StatusFound, "/login")
+		jumptoerror(c, "Failed to query user.")
 
 		return
 	}
 
 	if user.Password == Encrypt(c.PostForm("password")) {
 		log.Printf("login successfully")
+		sess, err := user.NewSession()
+		if err != nil {
+			log.Printf("Failed to create session: %v", err)
+			jumptoerror(c, "Failed to create session.")
+
+			return
+		}
+
+		c.SetCookie("goweb", sess.UUID, 300, "", "", false, true)
 		c.Redirect(http.StatusFound, "/")
 	} else {
 		log.Printf("Faile to login: Password error")
-		c.Redirect(http.StatusFound, "/login")
+		jumptoerror(c, "Password error.")
 	}
+}
+
+func jumptoerror(c *gin.Context, msg string) {
+	c.Redirect(http.StatusFound, fmt.Sprintf("/err?msg=%s", msg))
+}
+
+func execTemplate(c *gin.Context, files []string, data interface{}) {
+	t := template.Must(template.ParseFiles(files...))
+	t.ExecuteTemplate(c.Writer, "layout", data)
 }

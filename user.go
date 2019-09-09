@@ -4,15 +4,18 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-08 12:11:55
+ * @Modified    : 2019-09-09 23:19:19
  * @version     : 1.0
  * @Description :
  */
 package main
 
 import (
+	"errors"
 	"log"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 //User 用户信息.
@@ -56,6 +59,39 @@ func (u *User) Create() (err error) {
 	return
 }
 
+//NewSession 创建用户的会话.
+func (u *User) NewSession() (sess Session, err error) {
+	sess = Session{
+		UUID:      CreateUUID(),
+		Email:     u.Email,
+		UserID:    u.ID,
+		CreatedAt: time.Now(),
+	}
+
+	statement := "insert into session (uuid, email, user_id, created_at) values (?, ?, ?, ?, ?)"
+	stmt, err := db.Prepare(statement)
+	if err != nil {
+		return
+	}
+
+	result, err := stmt.Exec(&sess.UUID, &sess.Email, &sess.UserID, &sess.CreatedAt)
+	if err != nil {
+		return
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return
+	}
+
+	sess.ID = int(id)
+	return
+}
+
+func (sess *Session) Check() bool {
+	return true
+}
+
 //UserByEmail 通过邮箱获取用户信息.
 func UserByEmail(email string) (user User, err error) {
 	user = User{}
@@ -72,6 +108,21 @@ func UserByEmail(email string) (user User, err error) {
 		}
 
 		break
+	}
+
+	return
+}
+
+func SessionByContext(c *gin.Context) (sess Session, err error) {
+	sess = Session{}
+	value, err := c.Cookie("goweb")
+	if err != nil {
+		return
+	}
+
+	sess.UUID = value
+	if ok := sess.Check(); !ok {
+		err = errors.New("invalid session")
 	}
 
 	return
