@@ -4,24 +4,25 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-09 23:20:22
+ * @Modified    : 2019-09-10 14:25:05
  * @version     : 1.0
  * @Description :
  */
 package main
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"html/template"
-	"io"
-	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
+	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
+	"github.com/rifflock/lfshook"
 	uuid "github.com/satori/go.uuid"
+	"github.com/sirupsen/logrus"
 )
 
 func createMyRender() multitemplate.Renderer {
@@ -32,18 +33,63 @@ func createMyRender() multitemplate.Renderer {
 	return r
 }
 
+func createLogger(logName string) (loggerClient *logrus.Logger) {
+	loggerClient = logrus.New()
+	src, err := os.OpenFile(logName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("err", err)
+	}
+
+	loggerClient.Out = src
+	loggerClient.SetLevel(logrus.DebugLevel)
+	logWriter, err := rotatelogs.New(
+		logName+".%Y-%m-%d.log",
+		rotatelogs.WithLinkName(logName),
+		rotatelogs.WithMaxAge(7*24*time.Hour),
+		rotatelogs.WithRotationTime(24*time.Hour),
+	)
+
+	writerMap := lfshook.WriterMap{
+		logrus.InfoLevel:  logWriter,
+		logrus.FatalLevel: logWriter,
+		logrus.DebugLevel: logWriter,
+		logrus.WarnLevel:  logWriter,
+		logrus.ErrorLevel: logWriter,
+		logrus.PanicLevel: logWriter,
+	}
+
+	lfHook := lfshook.NewHook(writerMap, &logrus.TextFormatter{
+		TimestampFormat: "2006-01-02 15:04:05",
+	})
+
+	loggerClient.AddHook(lfHook)
+
+	return
+}
+
+var logger *logrus.Logger
+
+func NewLogger() gin.HandlerFunc {
+	logger = createLogger("web.log")
+
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		end := time.Now()
+		latency := end.Sub(start)
+		path := c.Request.URL.RequestURI()
+		clientIP := c.ClientIP()
+		method := c.Request.Method
+		statusCode := c.Writer.Status()
+		logger.Infof("|%3d|%13v|%15s|%s %s|", statusCode, latency, clientIP, method, path)
+	}
+}
+
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	//gin.DisableConsoleColor()
-	//f, err := os.Create("gin.log")
-	f, err := os.OpenFile("gin.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		fmt.Println(err.Error())
-		return
-	}
-
-	gin.DefaultWriter = io.MultiWriter(f, os.Stdout)
-	r := gin.Default()
+	r := gin.New()
+	r.Use(NewLogger())
 	r.Use(gin.Recovery())
 	//r.HTMLRender = createMyRender()
 
@@ -56,19 +102,16 @@ func main() {
 	r.GET("/signup", signup)
 	r.POST("/signup_account", signupAccount)
 	r.POST("/authenticate", authenticate)
-	r.Run(":8000")
+	err := r.Run(":8000")
+	if err != nil {
+		logger.Errorf("err: %s", err)
+	}
 }
 
 //CreateUUID 创建UUID.
 func CreateUUID() string {
 	u4 := uuid.NewV4()
 	return fmt.Sprintf("%s", u4)
-}
-
-//Encrypt 加密.
-func Encrypt(plaintext string) string {
-	crypttext := fmt.Sprintf("%x", sha1.Sum([]byte(plaintext)))
-	return crypttext
 }
 
 func errmsg(c *gin.Context) {
@@ -87,8 +130,8 @@ func errmsg(c *gin.Context) {
 func index(c *gin.Context) {
 	threads, err := Threads()
 	if err != nil {
-		log.Printf("Failed to load threads: %v", err)
-		jumptoerror(c, "Failed to load threads.")
+		logger.Errorf("Failed to load threads: %s.", err)
+		jumptoerror(c, fmt.Sprintf("Failed to load threads: %s.", err))
 		return
 	}
 
@@ -116,8 +159,8 @@ func signupAccount(c *gin.Context) {
 	}
 
 	if err := u.Create(); err != nil {
-		log.Printf("Failed to create user: %v", err)
-		jumptoerror(c, "Failed to create user.")
+		logger.Errorf("Failed to create user: %s.", err)
+		jumptoerror(c, fmt.Sprintf("Failed to create user: %s.", err))
 
 		return
 	}
@@ -126,30 +169,18 @@ func signupAccount(c *gin.Context) {
 }
 
 func authenticate(c *gin.Context) {
-	email := c.PostForm("email")
-	user, err := UserByEmail(email)
-	if err != nil {
-		log.Printf("Failed to query user: %v", err)
-		jumptoerror(c, "Failed to query user.")
-
-		return
+	u := User{
+		Email:    c.PostForm("email"),
+		Password: c.PostForm("password"),
 	}
 
-	if user.Password == Encrypt(c.PostForm("password")) {
-		log.Printf("login successfully")
-		sess, err := user.NewSession()
-		if err != nil {
-			log.Printf("Failed to create session: %v", err)
-			jumptoerror(c, "Failed to create session.")
-
-			return
-		}
-
+	sess, err := u.Login()
+	if err != nil {
+		logger.Errorf("Failed to login: %s.", err)
+		jumptoerror(c, fmt.Sprintf("Failed to login: %s.", err))
+	} else {
 		c.SetCookie("goweb", sess.UUID, 300, "", "", false, true)
 		c.Redirect(http.StatusFound, "/")
-	} else {
-		log.Printf("Faile to login: Password error")
-		jumptoerror(c, "Password error.")
 	}
 }
 

@@ -4,13 +4,15 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-08 12:12:22
+ * @Modified    : 2019-09-10 14:32:25
  * @version     : 1.0
  * @Description :
  */
 package main
 
-import "time"
+import (
+	"time"
+)
 
 //Thread 帖子信息.
 type Thread struct {
@@ -40,12 +42,14 @@ func (thr *Thread) CreatedAtDate() string {
 func (thr *Thread) NumReplies() (count int) {
 	rows, err := db.Query("select count(*) from posts where thread_id=$1", thr.ID)
 	if err != nil {
+		logger.Errorf("Failed to query numreplies: %s", err)
 		return
 	}
 
 	defer rows.Close()
 	for rows.Next() {
 		if err = rows.Scan(&count); err != nil {
+			logger.Errorf("Failed to scan numreplies: %s", err)
 			return
 		}
 	}
@@ -57,6 +61,7 @@ func (thr *Thread) NumReplies() (count int) {
 func (thr *Thread) Posts() (posts []Post, err error) {
 	rows, err := db.Query("select id, uuid, body, user_id, thread_id, created_at from posts where thread_id=$1", thr.ID)
 	if err != nil {
+		logger.Errorf("failed to query posts: %s", err)
 		return
 	}
 
@@ -64,6 +69,7 @@ func (thr *Thread) Posts() (posts []Post, err error) {
 	for rows.Next() {
 		pst := Post{}
 		if err = rows.Scan(&pst.ID, &pst.UUID, &pst.Body, &pst.UserID, &pst.ThreadID, &pst.CreatedAt); err != nil {
+			logger.Errorf("failed to scan posts: %s", err)
 			return
 		}
 
@@ -92,26 +98,6 @@ func (pst *Post) User() (user User) {
 	return
 }
 
-func queryUser(userid int) (user User) {
-	user = User{}
-	rows, err := db.Query("select id, uuid, name, email, created_at from users where id = ?", userid)
-	if err != nil {
-		return
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		err = rows.Scan(&user.ID, &user.UUID, &user.Name, &user.Email, &user.CreatedAt)
-		if err != nil {
-			return
-		}
-
-		break
-	}
-
-	return
-}
-
 //Threads 获取所有帖子.
 func Threads() (threads []Thread, err error) {
 	rows, err := db.Query("select id, uuid, topic, user_id, created_at from threads order by created_at desc")
@@ -122,11 +108,35 @@ func Threads() (threads []Thread, err error) {
 	defer rows.Close()
 	for rows.Next() {
 		conv := Thread{}
-		if err = rows.Scan(&conv.ID, &conv.UUID, &conv.Topic, &conv.UserID, &conv.CreatedAt); err != nil {
+		err = rows.Scan(&conv.ID, &conv.UUID, &conv.Topic, &conv.UserID, &conv.CreatedAt)
+		if err != nil {
 			return
 		}
 
 		threads = append(threads, conv)
+	}
+
+	return
+}
+
+//queryUser 根据用户ID查询用户.
+func queryUser(userid int) (user User) {
+	user = User{}
+	rows, err := db.Query("select id, uuid, name, email, created_at from users where id = ?", userid)
+	if err != nil {
+		logger.Errorf("failed to query: %s", err)
+		return
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&user.ID, &user.UUID, &user.Name, &user.Email, &user.CreatedAt)
+		if err != nil {
+			logger.Errorf("failed to scan: %s", err)
+			return
+		}
+
+		break
 	}
 
 	return

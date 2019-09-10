@@ -4,15 +4,16 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-09 23:19:19
+ * @Modified    : 2019-09-10 14:25:55
  * @version     : 1.0
  * @Description :
  */
 package main
 
 import (
+	"crypto/sha1"
 	"errors"
-	"log"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -46,21 +47,20 @@ func (u *User) Create() (err error) {
 	}
 
 	defer stmt.Close()
-	result, err := stmt.Exec(u.UUID, u.Name, u.Email, Encrypt(u.Password), time.Now())
+	result, err := stmt.Exec(u.UUID, u.Name, u.Email, encrypt(u.Password), time.Now())
 	if err != nil {
 		return
 	}
 
 	id, _ := result.LastInsertId()
 	rows, _ := result.RowsAffected()
-	log.Printf("insert successfully, id: %d, rows: %d", id, rows)
-	//err = stmt.QueryRow(u.UUID, u.Name, u.Email, Encrypt(u.Password), time.Now()).Scan(&u.ID, &u.UUID, &u.Name, &u.Email, &u.Password, &u.CreatedAt)
+	logger.Debugf("insert successfully, id: %d, rows: %d", id, rows)
 
 	return
 }
 
-//NewSession 创建用户的会话.
-func (u *User) NewSession() (sess Session, err error) {
+//newSession 创建用户的会话.
+func (u *User) newSession() (sess Session, err error) {
 	sess = Session{
 		UUID:      CreateUUID(),
 		Email:     u.Email,
@@ -68,7 +68,7 @@ func (u *User) NewSession() (sess Session, err error) {
 		CreatedAt: time.Now(),
 	}
 
-	statement := "insert into session (uuid, email, user_id, created_at) values (?, ?, ?, ?, ?)"
+	statement := "insert into sessions (uuid, email, user_id, created_at) values (?, ?, ?, ?)"
 	stmt, err := db.Prepare(statement)
 	if err != nil {
 		return
@@ -88,14 +88,31 @@ func (u *User) NewSession() (sess Session, err error) {
 	return
 }
 
-func (sess *Session) Check() bool {
-	return true
+//Login 登录,并返回session
+func (u *User) Login() (sess Session, err error) {
+	userFromDB := User{}
+	userFromDB, err = u.userByEmail()
+	if err != nil {
+		return
+	}
+
+	if userFromDB.Password == encrypt(u.Password) {
+		sess = Session{}
+		sess, err = userFromDB.newSession()
+		if err != nil {
+			logger.Errorf("Failed to create session: %v", err)
+
+			return
+		}
+	}
+
+	return
 }
 
-//UserByEmail 通过邮箱获取用户信息.
-func UserByEmail(email string) (user User, err error) {
+//userByEmail 通过邮箱获取用户信息.
+func (u *User) userByEmail() (user User, err error) {
 	user = User{}
-	rows, err := db.Query("select id, uuid, name, email, password, created_at from user where email = ?", email)
+	rows, err := db.Query("select id, uuid, name, email, password, created_at from user where email = ?", u.Email)
 	if err != nil {
 		return
 	}
@@ -113,6 +130,10 @@ func UserByEmail(email string) (user User, err error) {
 	return
 }
 
+func (sess *Session) Check() bool {
+	return true
+}
+
 func SessionByContext(c *gin.Context) (sess Session, err error) {
 	sess = Session{}
 	value, err := c.Cookie("goweb")
@@ -126,4 +147,9 @@ func SessionByContext(c *gin.Context) (sess Session, err error) {
 	}
 
 	return
+}
+
+//encrypt 加密.
+func encrypt(plaintext string) string {
+	return fmt.Sprintf("%x", sha1.Sum([]byte(plaintext)))
 }
