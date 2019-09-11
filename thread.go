@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-11 22:57:25
+ * @Modified    : 2019-09-11 23:13:35
  * @version     : 1.0
  * @Description :
  */
@@ -40,7 +40,7 @@ func (thr *Thread) CreatedAtDate() string {
 
 //NumReplies 获取帖子总的回复数.
 func (thr *Thread) NumReplies() (count int) {
-	rows, err := db.Query("select count(*) from posts where thread_id=$1", thr.ID)
+	rows, err := db.Query("select count(*) from posts where thread_id = ?", thr.ID)
 	if err != nil {
 		logger.Errorf("Failed to query numreplies: %s", err)
 		return
@@ -59,7 +59,7 @@ func (thr *Thread) NumReplies() (count int) {
 
 //Posts 获取帖子的所有回复.
 func (thr *Thread) Posts() (posts []Post, err error) {
-	rows, err := db.Query("select id, uuid, body, user_id, thread_id, created_at from posts where thread_id=$1", thr.ID)
+	rows, err := db.Query("select id, uuid, body, user_id, thread_id, created_at from posts where thread_id = ?", thr.ID)
 	if err != nil {
 		logger.Errorf("failed to query posts: %s", err)
 		return
@@ -150,7 +150,7 @@ func Threads() (threads []Thread, err error) {
 //queryUser 根据用户ID查询用户.
 func queryUser(userid int) (user User) {
 	user = User{}
-	rows, err := db.Query("select id, uuid, name, email, created_at from users where id = ?", userid)
+	rows, err := db.Query("select id, uuid, name, email, created_at from user where id = ?", userid)
 	if err != nil {
 		logger.Errorf("failed to query: %s", err)
 		return
