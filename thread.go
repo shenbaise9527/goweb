@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-10 14:32:25
+ * @Modified    : 2019-09-11 22:57:25
  * @version     : 1.0
  * @Description :
  */
@@ -82,6 +82,34 @@ func (thr *Thread) Posts() (posts []Post, err error) {
 //User 获取帖子的发起者.
 func (thr *Thread) User() (user User) {
 	user = queryUser(thr.UserID)
+
+	return
+}
+
+func (thr *Thread) NewThread() (err error) {
+	statement := "insert into threads (uuid, topic, user_id, created_at) values (?, ?, ?, ?)"
+	stmt, err := db.Prepare(statement)
+	if err != nil {
+		logger.Errorf("Failed to prepare threads: %s", err)
+
+		return
+	}
+
+	result, err := stmt.Exec(&thr.UUID, &thr.Topic, &thr.UserID, &thr.CreatedAt)
+	if err != nil {
+		logger.Errorf("Failed to insert threads: %s", err)
+
+		return
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		logger.Errorf("Failed to get threadid: %s", err)
+
+		return
+	}
+
+	thr.ID = int(id)
 
 	return
 }

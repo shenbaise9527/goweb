@@ -4,13 +4,14 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-10 14:25:05
+ * @Modified    : 2019-09-11 22:58:52
  * @version     : 1.0
  * @Description :
  */
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -102,6 +103,11 @@ func main() {
 	r.GET("/signup", signup)
 	r.POST("/signup_account", signupAccount)
 	r.POST("/authenticate", authenticate)
+
+	r.GET("/thread/new", newThread)
+	r.POST("/thread/create", createThread)
+	r.GET("/thread/read", readThread)
+	r.POST("/thread/post", postThread)
 	err := r.Run(":8000")
 	if err != nil {
 		logger.Errorf("err: %s", err)
@@ -115,7 +121,7 @@ func CreateUUID() string {
 }
 
 func errmsg(c *gin.Context) {
-	_, err := SessionByContext(c)
+	_, err := sessionByContext(c)
 	msg := c.Query("msg")
 	var files []string
 	if err != nil {
@@ -184,6 +190,52 @@ func authenticate(c *gin.Context) {
 	}
 }
 
+func newThread(c *gin.Context) {
+	_, err := sessionByContext(c)
+	if err != nil {
+		jumptoerror(c, fmt.Sprintf("invalid session: ", err))
+	} else {
+		files := []string{"templates/layout.html", "templates/private.navbar.html", "templates/new.thread.html"}
+		execTemplate(c, files, nil)
+	}
+}
+
+func createThread(c *gin.Context) {
+	sess, err := sessionByContext(c)
+	if err != nil {
+		jumptoerror(c, fmt.Sprintf("invalid session: ", err))
+	} else {
+		topic, flag := c.GetPostForm("topic")
+		if !flag {
+			jumptoerror(c, fmt.Sprintf("Failed to get topic: ", err))
+
+			return
+		}
+
+		thr := Thread{
+			UUID:      CreateUUID(),
+			Topic:     topic,
+			UserID:    sess.UserID,
+			CreatedAt: time.Now(),
+		}
+
+		err = thr.NewThread()
+		if err != nil {
+			jumptoerror(c, fmt.Sprintf("Failed to create thread: ", err))
+
+			return
+		}
+
+		c.Redirect(http.StatusFound, "/")
+	}
+}
+
+func readThread(c *gin.Context) {
+}
+
+func postThread(c *gin.Context) {
+}
+
 func jumptoerror(c *gin.Context, msg string) {
 	c.Redirect(http.StatusFound, fmt.Sprintf("/err?msg=%s", msg))
 }
@@ -191,4 +243,21 @@ func jumptoerror(c *gin.Context, msg string) {
 func execTemplate(c *gin.Context, files []string, data interface{}) {
 	t := template.Must(template.ParseFiles(files...))
 	t.ExecuteTemplate(c.Writer, "layout", data)
+}
+
+func sessionByContext(c *gin.Context) (sess Session, err error) {
+	sess = Session{}
+	value, err := c.Cookie("goweb")
+	if err != nil {
+		logger.Errorf("Failed to get session: %s", err)
+
+		return
+	}
+
+	sess.UUID = value
+	if ok := sess.Check(); !ok {
+		err = errors.New("invalid session")
+	}
+
+	return
 }

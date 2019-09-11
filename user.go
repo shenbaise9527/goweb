@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-10 14:25:55
+ * @Modified    : 2019-09-11 22:49:26
  * @version     : 1.0
  * @Description :
  */
@@ -12,11 +12,8 @@ package main
 
 import (
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"time"
-
-	"github.com/gin-gonic/gin"
 )
 
 //User 用户信息.
@@ -130,20 +127,48 @@ func (u *User) userByEmail() (user User, err error) {
 	return
 }
 
-func (sess *Session) Check() bool {
+func (s *Session) Check() bool {
+	rows, err := db.Query("select id, email, user_id, created_at from sessions where uuid = ?", s.UUID)
+	if err != nil {
+		logger.Errorf("Failed to query session: %s", err)
+
+		return false
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&s.ID, &s.Email, &s.UserID, &s.CreatedAt)
+		if err != nil {
+			logger.Errorf("Failed to scan session: %s", err)
+
+			return false
+		}
+
+		break
+	}
+
 	return true
 }
 
-func SessionByContext(c *gin.Context) (sess Session, err error) {
-	sess = Session{}
-	value, err := c.Cookie("goweb")
+func (s *Session) GetUser() (u User, err error) {
+	u = User{}
+	rows, err := db.Query("select id, uuid, name, email, password, created_at from user where id = ?", s.UserID)
 	if err != nil {
+		logger.Errorf("Failed to query user by session: %s", err)
+
 		return
 	}
 
-	sess.UUID = value
-	if ok := sess.Check(); !ok {
-		err = errors.New("invalid session")
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&u.ID, &u.UUID, &u.Name, &u.Email, &u.Password, &u.CreatedAt)
+		if err != nil {
+			logger.Errorf("Failed to scan user by session: %s", err)
+
+			return
+		}
+
+		break
 	}
 
 	return
