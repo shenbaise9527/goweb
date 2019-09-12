@@ -4,13 +4,14 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-11 23:13:35
+ * @Modified    : 2019-09-12 18:11:42
  * @version     : 1.0
  * @Description :
  */
 package main
 
 import (
+	"errors"
 	"time"
 )
 
@@ -114,6 +115,32 @@ func (thr *Thread) NewThread() (err error) {
 	return
 }
 
+func (thr *Thread) GetThreadByUUID() (err error) {
+	rows, err := db.Query("select id, topic, user_id, created_at from threads where uuid = ?", thr.UUID)
+	if err != nil {
+		logger.Errorf("Failed to query thread[uuid:%s]: %s", thr.UUID, err)
+
+		return
+	}
+
+	defer rows.Close()
+	for rows.Next() {
+		err = rows.Scan(&thr.ID, &thr.Topic, &thr.UserID, &thr.CreatedAt)
+		if err != nil {
+			logger.Errorf("Failed to scan thread[uuid:%s]: %s", thr.UUID, err)
+
+			return
+		}
+
+		return
+	}
+
+	err = errors.New("invalid thread uuid")
+	logger.Errorf("Failed to get thread[uuid:%s]: %s", thr.UUID, err)
+
+	return
+}
+
 //CreatedAtDate 获取回复的时间.
 func (pst *Post) CreatedAtDate() string {
 	return pst.CreatedAt.Format("2006-01-02 15:04:05")
@@ -128,6 +155,7 @@ func (pst *Post) User() (user User) {
 
 //Threads 获取所有帖子.
 func Threads() (threads []Thread, err error) {
+	threads = make([]Thread, 0, 10)
 	rows, err := db.Query("select id, uuid, topic, user_id, created_at from threads order by created_at desc")
 	if err != nil {
 		return
@@ -141,6 +169,7 @@ func Threads() (threads []Thread, err error) {
 			return
 		}
 
+		logger.Debugf("id: %d, uuid: %s, user_id: %d", conv.ID, conv.UUID, conv.UserID)
 		threads = append(threads, conv)
 	}
 

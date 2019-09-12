@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-11 22:58:52
+ * @Modified    : 2019-09-12 18:15:41
  * @version     : 1.0
  * @Description :
  */
@@ -88,7 +88,6 @@ func NewLogger() gin.HandlerFunc {
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
-	//gin.DisableConsoleColor()
 	r := gin.New()
 	r.Use(NewLogger())
 	r.Use(gin.Recovery())
@@ -142,7 +141,15 @@ func index(c *gin.Context) {
 	}
 
 	//c.HTML(http.StatusOK, "public_index", threads)
-	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/index.html"}
+	_, err = sessionByContext(c)
+	var files []string
+	if err != nil {
+		files = []string{"templates/layout.html", "templates/public.navbar.html", "templates/index.html"}
+	} else {
+		files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/index.html"}
+	}
+
+	logger.Debugf("files: %s, len: %d", files, len(threads))
 	execTemplate(c, files, threads)
 }
 
@@ -193,7 +200,7 @@ func authenticate(c *gin.Context) {
 func newThread(c *gin.Context) {
 	_, err := sessionByContext(c)
 	if err != nil {
-		jumptoerror(c, fmt.Sprintf("invalid session: ", err))
+		c.Redirect(http.StatusFound, "/login")
 	} else {
 		files := []string{"templates/layout.html", "templates/private.navbar.html", "templates/new.thread.html"}
 		execTemplate(c, files, nil)
@@ -203,7 +210,7 @@ func newThread(c *gin.Context) {
 func createThread(c *gin.Context) {
 	sess, err := sessionByContext(c)
 	if err != nil {
-		jumptoerror(c, fmt.Sprintf("invalid session: ", err))
+		c.Redirect(http.StatusFound, "/login")
 	} else {
 		topic, flag := c.GetPostForm("topic")
 		if !flag {
@@ -231,6 +238,25 @@ func createThread(c *gin.Context) {
 }
 
 func readThread(c *gin.Context) {
+	uuid := c.Query("id")
+	thr := Thread{
+		UUID: uuid,
+	}
+
+	err := thr.GetThreadByUUID()
+	if err != nil {
+		jumptoerror(c, fmt.Sprintf("Failed to read thread: ", err))
+	} else {
+		_, err = sessionByContext(c)
+		var files []string
+		if err != nil {
+			files = []string{"templates/layout.html", "templates/public.navbar.html", "templates/public.thread.html"}
+		} else {
+			files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/private.thread.html"}
+		}
+
+		execTemplate(c, files, &thr)
+	}
 }
 
 func postThread(c *gin.Context) {

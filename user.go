@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-11 22:49:26
+ * @Modified    : 2019-09-12 11:10:25
  * @version     : 1.0
  * @Description :
  */
@@ -135,19 +135,21 @@ func (s *Session) Check() bool {
 		return false
 	}
 
+	flag := false
 	defer rows.Close()
 	for rows.Next() {
 		err = rows.Scan(&s.ID, &s.Email, &s.UserID, &s.CreatedAt)
 		if err != nil {
 			logger.Errorf("Failed to scan session: %s", err)
 
-			return false
+			break
 		}
 
+		flag = true
 		break
 	}
 
-	return true
+	return flag
 }
 
 func (s *Session) GetUser() (u User, err error) {

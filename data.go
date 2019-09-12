@@ -4,7 +4,7 @@
  * @File        : data.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:44:45
- * @Modified    : 2019-09-11 22:27:24
+ * @Modified    : 2019-09-12 11:08:29
  * @version     : 1.0
  * @Description :
  */
@@ -23,8 +23,8 @@ var db *sql.DB
 func init() {
 	var err error
 	// 设置字符集,datetime转化为time.Time类型,采用本地时区.
-	//db, err = sql.Open("mysql", "mtp2_test:muchinfo@tcp(127.0.0.1:3406)/web?charset=utf8&parseTime=true&loc=Local")
-	db, err = sql.Open("mysql", "web:Zyan820928@tcp(127.0.0.1:3306)/web?charset=utf8&parseTime=true&loc=Local")
+	db, err = sql.Open("mysql", "mtp2_test:muchinfo@tcp(127.0.0.1:3406)/web?charset=utf8&parseTime=true&loc=Local")
+	//db, err = sql.Open("mysql", "web:Zyan820928@tcp(127.0.0.1:3306)/web?charset=utf8&parseTime=true&loc=Local")
 	if err != nil {
 		log.Fatal(err)
 
