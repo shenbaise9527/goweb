@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-12 11:10:25
+ * @Modified    : 2019-09-14 17:07:58
  * @version     : 1.0
  * @Description :
  */
@@ -171,6 +171,23 @@ func (s *Session) GetUser() (u User, err error) {
 		}
 
 		break
+	}
+
+	return
+}
+
+func (s *Session) DelByUUID() (err error) {
+	statement := "delete from sessions where uuid = ?"
+	stmt, err := db.Prepare(statement)
+	if err != nil {
+		logger.Errorf("Failed to prepare del uuid:%s, err: %s", s.UUID, err)
+
+		return
+	}
+
+	_, err = stmt.Exec(s.UUID)
+	if err != nil {
+		logger.Errorf("Failed to exec del uuid:%s, err: %s", s.UUID, err)
 	}
 
 	return

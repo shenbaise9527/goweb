@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-12 18:15:41
+ * @Modified    : 2019-09-14 17:08:40
  * @version     : 1.0
  * @Description :
  */
@@ -99,6 +99,7 @@ func main() {
 	r.GET("/", index)
 	r.GET("/err", errmsg)
 	r.GET("/login", login)
+	r.GET("/logout", logout)
 	r.GET("/signup", signup)
 	r.POST("/signup_account", signupAccount)
 	r.POST("/authenticate", authenticate)
@@ -158,6 +159,16 @@ func login(c *gin.Context) {
 	execTemplate(c, files, nil)
 }
 
+func logout(c *gin.Context) {
+	s, err := sessionByContext(c)
+	if err != http.ErrNoCookie {
+		logger.Warnf("Failed to get cookie: %s", err)
+		s.DelByUUID()
+	}
+
+	c.Redirect(http.StatusFound, "/")
+}
+
 func signup(c *gin.Context) {
 	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/signup.html"}
 	execTemplate(c, files, nil)
@@ -214,7 +225,7 @@ func createThread(c *gin.Context) {
 	} else {
 		topic, flag := c.GetPostForm("topic")
 		if !flag {
-			jumptoerror(c, fmt.Sprintf("Failed to get topic: ", err))
+			jumptoerror(c, fmt.Sprintf("Failed to get topic: %s", err))
 
 			return
 		}
@@ -228,7 +239,7 @@ func createThread(c *gin.Context) {
 
 		err = thr.NewThread()
 		if err != nil {
-			jumptoerror(c, fmt.Sprintf("Failed to create thread: ", err))
+			jumptoerror(c, fmt.Sprintf("Failed to create thread: %s", err))
 
 			return
 		}
@@ -245,7 +256,7 @@ func readThread(c *gin.Context) {
 
 	err := thr.GetThreadByUUID()
 	if err != nil {
-		jumptoerror(c, fmt.Sprintf("Failed to read thread: ", err))
+		jumptoerror(c, fmt.Sprintf("Failed to read thread: %s", err))
 	} else {
 		_, err = sessionByContext(c)
 		var files []string
@@ -260,6 +271,55 @@ func readThread(c *gin.Context) {
 }
 
 func postThread(c *gin.Context) {
+	s, err := sessionByContext(c)
+	if err != nil {
+		c.Redirect(http.StatusFound, "/login")
+
+		return
+	}
+
+	body, flag := c.GetPostForm("body")
+	if !flag {
+		jumptoerror(c, "data error")
+
+		return
+	}
+
+	uuid, flag := c.GetPostForm("uuid")
+	if !flag {
+		jumptoerror(c, "data error")
+
+		return
+	}
+
+	thr := Thread{
+		UUID: uuid,
+	}
+
+	err = thr.GetThreadByUUID()
+	if err != nil {
+		jumptoerror(c, fmt.Sprintf("Failed to read thread: %s", err))
+
+		return
+	}
+
+	pst := Post{
+		UUID:      CreateUUID(),
+		UserID:    s.UserID,
+		ThreadID:  thr.ID,
+		Body:      body,
+		CreatedAt: time.Now(),
+	}
+
+	err = pst.NewPost()
+	if err != nil {
+		jumptoerror(c, fmt.Sprintf("Failed to read thread: %s", err))
+
+		return
+	}
+
+	url := fmt.Sprintf("/thread/read?id=", uuid)
+	c.Redirect(http.StatusFound, url)
 }
 
 func jumptoerror(c *gin.Context, msg string) {

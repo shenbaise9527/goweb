@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-12 18:11:42
+ * @Modified    : 2019-09-13 09:13:40
  * @version     : 1.0
  * @Description :
  */
@@ -137,6 +137,34 @@ func (thr *Thread) GetThreadByUUID() (err error) {
 
 	err = errors.New("invalid thread uuid")
 	logger.Errorf("Failed to get thread[uuid:%s]: %s", thr.UUID, err)
+
+	return
+}
+
+func (pst *Post) NewPost() (err error) {
+	statement := "insert into posts (uuid, body, user_id, thread_id, created_at) values (?, ?, ?, ?, ?)"
+	stmt, err := db.Prepare(statement)
+	if err != nil {
+		logger.Errorf("Failed to prepare newpost: %s", err)
+
+		return
+	}
+
+	result, err := stmt.Exec(&pst.UUID, &pst.Body, &pst.UserID, &pst.ThreadID, &pst.CreatedAt)
+	if err != nil {
+		logger.Errorf("Failed to exec newpost: %s", err)
+
+		return
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		logger.Errorf("Failed to lastinsertid: %s", err)
+
+		return
+	}
+
+	pst.ID = int(id)
 
 	return
 }
