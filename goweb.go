@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-14 17:08:40
+ * @Modified    : 2019-09-18 13:31:56
  * @version     : 1.0
  * @Description :
  */
@@ -36,17 +36,36 @@ func createMyRender() multitemplate.Renderer {
 
 func createLogger(logName string) (loggerClient *logrus.Logger) {
 	loggerClient = logrus.New()
-	src, err := os.OpenFile(logName, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+
+	// 显示行号等信息.
+	loggerClient.SetReportCaller(true)
+
+	// 禁止logrus的输出.
+	src, err := os.OpenFile(os.DevNull, os.O_APPEND|os.O_WRONLY, os.ModeAppend)
 	if err != nil {
 		fmt.Println("err", err)
 	}
 
 	loggerClient.Out = src
+
+	// 设置日志级别.
 	loggerClient.SetLevel(logrus.DebugLevel)
+
+	// 设置分割规则.
 	logWriter, err := rotatelogs.New(
+		// 分割后的文件名.
 		logName+".%Y-%m-%d.log",
+
+		// 设置文件软连接,方便找到当前日志文件.
 		rotatelogs.WithLinkName(logName),
+
+		// 设置文件清理前的最长保存时间,参数=-1表示不清除.
 		rotatelogs.WithMaxAge(7*24*time.Hour),
+
+		// 设置文件清理前最多保存的个数,不能与WithMaxAge同时使用.
+		//rotatelogs.WithRotationCount(10),
+
+		// 设置日志分割时间,这里设置24小时分割一次.
 		rotatelogs.WithRotationTime(24*time.Hour),
 	)
 
@@ -60,6 +79,7 @@ func createLogger(logName string) (loggerClient *logrus.Logger) {
 	}
 
 	lfHook := lfshook.NewHook(writerMap, &logrus.TextFormatter{
+		// 格式化输出时间.
 		TimestampFormat: "2006-01-02 15:04:05",
 	})
 
