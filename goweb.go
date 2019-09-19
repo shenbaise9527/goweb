@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-18 13:31:56
+ * @Modified    : 2019-09-19 15:47:15
  * @version     : 1.0
  * @Description :
  */
@@ -128,6 +128,19 @@ func main() {
 	r.POST("/thread/create", createThread)
 	r.GET("/thread/read", readThread)
 	r.POST("/thread/post", postThread)
+
+	// 设置gorm日志.
+	db.LogMode(true)
+	//db.SetLogger(gorm.Logger{logger})
+	//db.SetLogger(logger)
+
+	// 删除所有session.
+	db.Delete(&Session{})
+
+	// 关闭连接.
+	defer db.Close()
+
+	// 启动gin服务.
 	err := r.Run(":8000")
 	if err != nil {
 		logger.Errorf("err: %s", err)
@@ -170,7 +183,6 @@ func index(c *gin.Context) {
 		files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/index.html"}
 	}
 
-	logger.Debugf("files: %s, len: %d", files, len(threads))
 	execTemplate(c, files, threads)
 }
 

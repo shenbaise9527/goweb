@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-13 09:13:40
+ * @Modified    : 2019-09-19 15:48:09
  * @version     : 1.0
  * @Description :
  */
@@ -18,20 +18,20 @@ import (
 //Thread 帖子信息.
 type Thread struct {
 	ID        int
-	UUID      string
-	Topic     string
-	UserID    int
+	UUID      string `gorm: "column:uuid"`
+	Topic     string `gorm: "column:topic"`
+	UserID    int    `gorm: "column:user_id"`
 	CreatedAt time.Time
 }
 
 //Post 回复信息.
 type Post struct {
 	ID        int
-	UUID      string
-	Body      string
-	UserID    int
-	ThreadID  int
-	CreatedAt time.Time
+	UUID      string    `gorm: "column:uuid;type:varchar(64)"`
+	Body      string    `gorm: "column:body;type:text"`
+	UserID    int       `gorm: "column:user_id;type:int(11)"`
+	ThreadID  int       `gorm: "column:thread_id;type:int(11)"`
+	CreatedAt time.Time `gorm: "column:created_at;type:datetime"`
 }
 
 //CreatedAtDate 获取帖子创建时间.
@@ -41,40 +41,17 @@ func (thr *Thread) CreatedAtDate() string {
 
 //NumReplies 获取帖子总的回复数.
 func (thr *Thread) NumReplies() (count int) {
-	rows, err := db.Query("select count(*) from posts where thread_id = ?", thr.ID)
-	if err != nil {
-		logger.Errorf("Failed to query numreplies: %s", err)
-		return
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		if err = rows.Scan(&count); err != nil {
-			logger.Errorf("Failed to scan numreplies: %s", err)
-			return
-		}
-	}
+	db.Model(&Post{}).Where("thread_id = ?", thr.ID).Count(&count)
 
 	return
 }
 
 //Posts 获取帖子的所有回复.
 func (thr *Thread) Posts() (posts []Post, err error) {
-	rows, err := db.Query("select id, uuid, body, user_id, thread_id, created_at from posts where thread_id = ?", thr.ID)
+	err = db.Where("thread_id = ?", thr.ID).Find(&posts).Error
 	if err != nil {
-		logger.Errorf("failed to query posts: %s", err)
+		logger.Errorf("failed to query posts, threadid: %d, err: %s", thr.ID, err)
 		return
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		pst := Post{}
-		if err = rows.Scan(&pst.ID, &pst.UUID, &pst.Body, &pst.UserID, &pst.ThreadID, &pst.CreatedAt); err != nil {
-			logger.Errorf("failed to scan posts: %s", err)
-			return
-		}
-
-		posts = append(posts, pst)
 	}
 
 	return
@@ -82,89 +59,50 @@ func (thr *Thread) Posts() (posts []Post, err error) {
 
 //User 获取帖子的发起者.
 func (thr *Thread) User() (user User) {
+	logger.Debugf("query user by thread, threadid: %d,userid: %d", thr.ID, thr.UserID)
 	user = queryUser(thr.UserID)
 
 	return
 }
 
 func (thr *Thread) NewThread() (err error) {
-	statement := "insert into threads (uuid, topic, user_id, created_at) values (?, ?, ?, ?)"
-	stmt, err := db.Prepare(statement)
-	if err != nil {
-		logger.Errorf("Failed to prepare threads: %s", err)
-
-		return
-	}
-
-	result, err := stmt.Exec(&thr.UUID, &thr.Topic, &thr.UserID, &thr.CreatedAt)
+	err = db.Create(thr).Error
 	if err != nil {
 		logger.Errorf("Failed to insert threads: %s", err)
 
 		return
 	}
 
-	id, err := result.LastInsertId()
-	if err != nil {
-		logger.Errorf("Failed to get threadid: %s", err)
-
-		return
-	}
-
-	thr.ID = int(id)
-
 	return
 }
 
 func (thr *Thread) GetThreadByUUID() (err error) {
-	rows, err := db.Query("select id, topic, user_id, created_at from threads where uuid = ?", thr.UUID)
+	idb := db.Where("uuid = ?", thr.UUID).First(thr)
+	err = idb.Error
 	if err != nil {
 		logger.Errorf("Failed to query thread[uuid:%s]: %s", thr.UUID, err)
 
 		return
 	}
 
-	defer rows.Close()
-	for rows.Next() {
-		err = rows.Scan(&thr.ID, &thr.Topic, &thr.UserID, &thr.CreatedAt)
-		if err != nil {
-			logger.Errorf("Failed to scan thread[uuid:%s]: %s", thr.UUID, err)
-
-			return
-		}
-
-		return
+	rows := idb.RowsAffected
+	if rows <= 0 {
+		err = errors.New("invalid thread uuid")
+		logger.Errorf("Failed to get thread[uuid:%s]: %s", thr.UUID, err)
 	}
-
-	err = errors.New("invalid thread uuid")
-	logger.Errorf("Failed to get thread[uuid:%s]: %s", thr.UUID, err)
 
 	return
 }
 
 func (pst *Post) NewPost() (err error) {
-	statement := "insert into posts (uuid, body, user_id, thread_id, created_at) values (?, ?, ?, ?, ?)"
-	stmt, err := db.Prepare(statement)
+	err = db.Create(pst).Error
 	if err != nil {
-		logger.Errorf("Failed to prepare newpost: %s", err)
+		logger.Errorf("Failed to insert post: %s", err)
 
 		return
 	}
 
-	result, err := stmt.Exec(&pst.UUID, &pst.Body, &pst.UserID, &pst.ThreadID, &pst.CreatedAt)
-	if err != nil {
-		logger.Errorf("Failed to exec newpost: %s", err)
-
-		return
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		logger.Errorf("Failed to lastinsertid: %s", err)
-
-		return
-	}
-
-	pst.ID = int(id)
+	logger.Debug("new post,id: %d, userid: %d, threadid: %d", pst.ID, pst.UserID, pst.ThreadID)
 
 	return
 }
@@ -183,23 +121,8 @@ func (pst *Post) User() (user User) {
 
 //Threads 获取所有帖子.
 func Threads() (threads []Thread, err error) {
-	threads = make([]Thread, 0, 10)
-	rows, err := db.Query("select id, uuid, topic, user_id, created_at from threads order by created_at desc")
-	if err != nil {
-		return
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		conv := Thread{}
-		err = rows.Scan(&conv.ID, &conv.UUID, &conv.Topic, &conv.UserID, &conv.CreatedAt)
-		if err != nil {
-			return
-		}
-
-		logger.Debugf("id: %d, uuid: %s, user_id: %d", conv.ID, conv.UUID, conv.UserID)
-		threads = append(threads, conv)
-	}
+	err = db.Order("created_at desc").Find(&threads).Error
+	logger.Debug(threads)
 
 	return
 }
@@ -207,21 +130,10 @@ func Threads() (threads []Thread, err error) {
 //queryUser 根据用户ID查询用户.
 func queryUser(userid int) (user User) {
 	user = User{}
-	rows, err := db.Query("select id, uuid, name, email, created_at from user where id = ?", userid)
+	err := db.Where("id = ?", userid).First(&user)
 	if err != nil {
-		logger.Errorf("failed to query: %s", err)
+		logger.Errorf("failed to query user, userid: %d, err: %s", userid, err)
 		return
-	}
-
-	defer rows.Close()
-	for rows.Next() {
-		err = rows.Scan(&user.ID, &user.UUID, &user.Name, &user.Email, &user.CreatedAt)
-		if err != nil {
-			logger.Errorf("failed to scan: %s", err)
-			return
-		}
-
-		break
 	}
 
 	return
