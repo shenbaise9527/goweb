@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-19 17:59:33
+ * @Modified    : 2019-09-19 18:12:07
  * @version     : 1.0
  * @Description :
  */
@@ -49,9 +49,7 @@ func (u *User) Create() (err error) {
 		return
 	}
 
-	rows := idb.RowsAffected
-	id := u.ID
-	logger.Debugf("insert user successfully, id: %d, name: %s, rows: %d", id, u.Name, rows)
+	logger.Debugf("new user: %v", u)
 
 	return
 }
@@ -71,9 +69,7 @@ func (u *User) newSession() (sess Session, err error) {
 		return
 	}
 
-	rows := idb.RowsAffected
-	id := sess.ID
-	logger.Debugf("insert session successfully, id: %d, name: %s, rows: %d", id, u.Name, rows)
+	logger.Debugf("new session: %v", sess)
 
 	return
 }

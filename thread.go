@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-19 17:55:51
+ * @Modified    : 2019-09-19 18:12:33
  * @version     : 1.0
  * @Description :
  */
@@ -73,6 +73,8 @@ func (thr *Thread) NewThread() (err error) {
 
 		return
 	}
+
+	logger.Debugf("new thread,id: %d, userid: %d, uuid: %d", thr.ID, thr.UserID, thr.UUID)
 
 	return
 }
