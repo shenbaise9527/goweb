@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-19 17:48:08
+ * @Modified    : 2019-09-19 18:45:11
  * @version     : 1.0
  * @Description :
  */
@@ -450,7 +450,7 @@ func postThread(c *gin.Context) {
 		return
 	}
 
-	url := fmt.Sprintf("/thread/read?id=", uuid)
+	url := fmt.Sprintf("/thread/read?id=%s", uuid)
 	c.Redirect(http.StatusFound, url)
 }
 
