@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-18 15:52:00
+ * @Modified    : 2019-09-19 17:59:33
  * @version     : 1.0
  * @Description :
  */
@@ -12,27 +12,28 @@ package main
 
 import (
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"time"
 )
 
 //User 用户信息.
 type User struct {
-	ID        int
-	UUID      string    `gorm: "column:uuid;type:varchar(64)"`
-	Name      string    `gorm: "column:name;type:varchar(256)"`
-	Email     string    `gorm: "column:email;type:varchar(256)"`
-	Password  string    `gorm: "column:password;type:varchar(256)"`
-	CreatedAt time.Time `gorm: "column:created_at;type:datetime"`
+	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:Uuid"`
+	Name      string    `gorm:"column:Name"`
+	Email     string    `gorm:"column:Email"`
+	Password  string    `gorm:"column:Password"`
+	CreatedAt time.Time `gorm:"column:Created_at;type:datetime"`
 }
 
 //Session 会话信息.
 type Session struct {
-	ID        int
-	UUID      string    `gorm: "column:uuid;type:varchar(64)"`
-	Email     string    `gorm: "column:email;type:varchar(256)"`
-	UserID    int       `gorm: "column:user_id;type:int(11)"`
-	CreatedAt time.Time `gorm: "column:created_at;type:datetime"`
+	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:Uuid"`
+	Email     string    `gorm:"column:Email"`
+	UserID    int       `gorm:"column:User_id"`
+	CreatedAt time.Time `gorm:"column:Created_at"`
 }
 
 //TableName 对应的表名.
@@ -108,7 +109,11 @@ func (u *User) userByEmail() (user User, err error) {
 func (s *Session) Check() bool {
 	idb := db.Where("uuid = ?", s.UUID).First(s)
 	err := idb.Error
-	if err != nil {
+	if idb.RecordNotFound() {
+		logger.Debugf("cant find session, uuid: %s", s.UUID)
+
+		return false
+	} else if err != nil {
 		logger.Errorf("Failed to query session,uuid: %s, err: %s", s.UUID, err)
 
 		return false
@@ -119,11 +124,13 @@ func (s *Session) Check() bool {
 
 func (s *Session) GetUser() (u User, err error) {
 	u = User{}
-	err = db.Where("id = ?", s.UserID).First(&u).Error
-	if err != nil {
+	idb := db.Where("id = ?", s.UserID).First(&u)
+	err = idb.Error
+	if idb.RecordNotFound() {
+		logger.Debugf("cant find user, userid: %d", s.UserID)
+		err = errors.New("invalid userid")
+	} else if err != nil {
 		logger.Errorf("Failed to query user by session,userid: %d, err: %s", s.UserID, err)
-
-		return
 	}
 
 	return

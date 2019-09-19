@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-19 15:48:09
+ * @Modified    : 2019-09-19 17:55:51
  * @version     : 1.0
  * @Description :
  */
@@ -17,21 +17,21 @@ import (
 
 //Thread 帖子信息.
 type Thread struct {
-	ID        int
-	UUID      string `gorm: "column:uuid"`
-	Topic     string `gorm: "column:topic"`
-	UserID    int    `gorm: "column:user_id"`
-	CreatedAt time.Time
+	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:Uuid"`
+	Topic     string    `gorm:"column:Topic"`
+	UserID    int       `gorm:"column:User_id"`
+	CreatedAt time.Time `gorm:"column:Created_at;type:datetime"`
 }
 
 //Post 回复信息.
 type Post struct {
-	ID        int
-	UUID      string    `gorm: "column:uuid;type:varchar(64)"`
-	Body      string    `gorm: "column:body;type:text"`
-	UserID    int       `gorm: "column:user_id;type:int(11)"`
-	ThreadID  int       `gorm: "column:thread_id;type:int(11)"`
-	CreatedAt time.Time `gorm: "column:created_at;type:datetime"`
+	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:Uuid"`
+	Body      string    `gorm:"column:Body"`
+	UserID    int       `gorm:"column:User_id"`
+	ThreadID  int       `gorm:"column:Thread_id"`
+	CreatedAt time.Time `gorm:"column:Created_at;type:datetime"`
 }
 
 //CreatedAtDate 获取帖子创建时间.
@@ -48,10 +48,12 @@ func (thr *Thread) NumReplies() (count int) {
 
 //Posts 获取帖子的所有回复.
 func (thr *Thread) Posts() (posts []Post, err error) {
-	err = db.Where("thread_id = ?", thr.ID).Find(&posts).Error
-	if err != nil {
+	idb := db.Where("thread_id = ?", thr.ID).Find(&posts)
+	err = idb.Error
+	if idb.RecordNotFound() {
+		logger.Debugf("cant find posts, thread_id: %d", thr.ID)
+	} else if err != nil {
 		logger.Errorf("failed to query posts, threadid: %d, err: %s", thr.ID, err)
-		return
 	}
 
 	return
@@ -59,7 +61,6 @@ func (thr *Thread) Posts() (posts []Post, err error) {
 
 //User 获取帖子的发起者.
 func (thr *Thread) User() (user User) {
-	logger.Debugf("query user by thread, threadid: %d,userid: %d", thr.ID, thr.UserID)
 	user = queryUser(thr.UserID)
 
 	return
@@ -79,16 +80,11 @@ func (thr *Thread) NewThread() (err error) {
 func (thr *Thread) GetThreadByUUID() (err error) {
 	idb := db.Where("uuid = ?", thr.UUID).First(thr)
 	err = idb.Error
-	if err != nil {
-		logger.Errorf("Failed to query thread[uuid:%s]: %s", thr.UUID, err)
-
-		return
-	}
-
-	rows := idb.RowsAffected
-	if rows <= 0 {
+	if idb.RecordNotFound() {
+		logger.Debugf("cant find thread, uuid: %s", thr.UUID)
 		err = errors.New("invalid thread uuid")
-		logger.Errorf("Failed to get thread[uuid:%s]: %s", thr.UUID, err)
+	} else if err != nil {
+		logger.Errorf("Failed to query thread[uuid:%s]: %s", thr.UUID, err)
 	}
 
 	return
@@ -121,8 +117,13 @@ func (pst *Post) User() (user User) {
 
 //Threads 获取所有帖子.
 func Threads() (threads []Thread, err error) {
-	err = db.Order("created_at desc").Find(&threads).Error
-	logger.Debug(threads)
+	idb := db.Order("created_at desc").Find(&threads)
+	if idb.RecordNotFound() {
+		logger.Debug("cant find threads")
+		err = nil
+	} else {
+		err = idb.Error
+	}
 
 	return
 }
@@ -130,9 +131,13 @@ func Threads() (threads []Thread, err error) {
 //queryUser 根据用户ID查询用户.
 func queryUser(userid int) (user User) {
 	user = User{}
-	err := db.Where("id = ?", userid).First(&user)
-	if err != nil {
+	idb := db.Where("id = ?", userid).First(&user)
+	err := idb.Error
+	if idb.RecordNotFound() {
+		logger.Debugf("cant find user: %d", userid)
+	} else if err != nil {
 		logger.Errorf("failed to query user, userid: %d, err: %s", userid, err)
+
 		return
 	}
 

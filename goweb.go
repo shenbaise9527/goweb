@@ -4,19 +4,24 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-19 15:47:15
+ * @Modified    : 2019-09-19 17:48:08
  * @version     : 1.0
  * @Description :
  */
 package main
 
 import (
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
 	"os"
+	"reflect"
+	"regexp"
+	"strconv"
 	"time"
+	"unicode"
 
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
@@ -32,6 +37,102 @@ func createMyRender() multitemplate.Renderer {
 	r.AddFromFiles("err", "templates/layout.html", "templates/public.navbar.html", "templates/error.html")
 
 	return r
+}
+
+var (
+	sqlRegexp                = regexp.MustCompile(`\?`)
+	numericPlaceHolderRegexp = regexp.MustCompile(`\$\d+`)
+)
+
+var logger *logrus.Logger
+
+func isPrintable(s string) bool {
+	for _, r := range s {
+		if !unicode.IsPrint(r) {
+			return false
+		}
+	}
+	return true
+}
+
+//gormLogger gorm日志插件.
+type gormLogger struct {
+}
+
+func (dblooger *gormLogger) Print(values ...interface{}) {
+	if len(values) > 1 {
+		var (
+			sql             string
+			formattedValues []string
+			level           = values[0]
+			source          = fmt.Sprintf("(%v)", values[1])
+		)
+
+		messages := []interface{}{source}
+
+		if level == "sql" {
+			// duration
+			messages = append(messages, fmt.Sprintf("[%.2fms]", float64(values[2].(time.Duration).Nanoseconds()/1e4)/100.0))
+			// sql
+
+			for _, value := range values[4].([]interface{}) {
+				indirectValue := reflect.Indirect(reflect.ValueOf(value))
+				if indirectValue.IsValid() {
+					value = indirectValue.Interface()
+					if t, ok := value.(time.Time); ok {
+						formattedValues = append(formattedValues, fmt.Sprintf("'%v'", t.Format("2006-01-02 15:04:05")))
+					} else if b, ok := value.([]byte); ok {
+						if str := string(b); isPrintable(str) {
+							formattedValues = append(formattedValues, fmt.Sprintf("'%v'", str))
+						} else {
+							formattedValues = append(formattedValues, "'<binary>'")
+						}
+					} else if r, ok := value.(driver.Valuer); ok {
+						if value, err := r.Value(); err == nil && value != nil {
+							formattedValues = append(formattedValues, fmt.Sprintf("'%v'", value))
+						} else {
+							formattedValues = append(formattedValues, "NULL")
+						}
+					} else {
+						switch value.(type) {
+						case int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64, bool:
+							formattedValues = append(formattedValues, fmt.Sprintf("%v", value))
+						default:
+							formattedValues = append(formattedValues, fmt.Sprintf("'%v'", value))
+						}
+					}
+				} else {
+					formattedValues = append(formattedValues, "NULL")
+				}
+			}
+
+			// differentiate between $n placeholders or else treat like ?
+			if numericPlaceHolderRegexp.MatchString(values[3].(string)) {
+				sql = values[3].(string)
+				for index, value := range formattedValues {
+					placeholder := fmt.Sprintf(`\$%d([^\d]|$)`, index+1)
+					sql = regexp.MustCompile(placeholder).ReplaceAllString(sql, value+"$1")
+				}
+			} else {
+				formattedValuesLength := len(formattedValues)
+				for index, value := range sqlRegexp.Split(values[3].(string), -1) {
+					sql += value
+					if index < formattedValuesLength {
+						sql += formattedValues[index]
+					}
+				}
+			}
+
+			messages = append(messages, sql)
+			messages = append(messages, fmt.Sprintf("[%v]", strconv.FormatInt(values[5].(int64), 10)+" rows affected or returned "))
+		} else {
+			messages = append(messages, values[2:]...)
+		}
+
+		logger.Debug(messages)
+	}
+
+	return
 }
 
 func createLogger(logName string) (loggerClient *logrus.Logger) {
@@ -88,8 +189,6 @@ func createLogger(logName string) (loggerClient *logrus.Logger) {
 	return
 }
 
-var logger *logrus.Logger
-
 func NewLogger() gin.HandlerFunc {
 	logger = createLogger("web.log")
 
@@ -129,10 +228,11 @@ func main() {
 	r.GET("/thread/read", readThread)
 	r.POST("/thread/post", postThread)
 
-	// 设置gorm日志.
+	// 设置开启gorm日志.
 	db.LogMode(true)
-	//db.SetLogger(gorm.Logger{logger})
-	//db.SetLogger(logger)
+
+	// 设置gorm的日志插件.
+	db.SetLogger(&gormLogger{})
 
 	// 删除所有session.
 	db.Delete(&Session{})
