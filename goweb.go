@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-19 18:45:11
+ * @Modified    : 2019-09-20 10:13:17
  * @version     : 1.0
  * @Description :
  */
@@ -59,6 +59,7 @@ func isPrintable(s string) bool {
 type gormLogger struct {
 }
 
+//Print 打印接口.
 func (dblooger *gormLogger) Print(values ...interface{}) {
 	if len(values) > 1 {
 		var (
@@ -189,6 +190,7 @@ func createLogger(logName string) (loggerClient *logrus.Logger) {
 	return
 }
 
+//NewLogger 生成gin的日志插件.
 func NewLogger() gin.HandlerFunc {
 	logger = createLogger("web.log")
 
