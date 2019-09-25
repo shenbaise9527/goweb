@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-19 18:12:07
+ * @Modified    : 2019-09-21 09:11:35
  * @version     : 1.0
  * @Description :
  */
@@ -19,21 +19,21 @@ import (
 
 //User 用户信息.
 type User struct {
-	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
-	UUID      string    `gorm:"column:Uuid"`
-	Name      string    `gorm:"column:Name"`
-	Email     string    `gorm:"column:Email"`
-	Password  string    `gorm:"column:Password"`
-	CreatedAt time.Time `gorm:"column:Created_at;type:datetime"`
+	ID        int       `gorm:"column:id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:uuid"`
+	Name      string    `gorm:"column:name"`
+	Email     string    `gorm:"column:email"`
+	Password  string    `gorm:"column:password"`
+	CreatedAt time.Time `gorm:"column:created_at;type:datetime"`
 }
 
 //Session 会话信息.
 type Session struct {
-	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
-	UUID      string    `gorm:"column:Uuid"`
-	Email     string    `gorm:"column:Email"`
-	UserID    int       `gorm:"column:User_id"`
-	CreatedAt time.Time `gorm:"column:Created_at"`
+	ID        int       `gorm:"column:id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:uuid"`
+	Email     string    `gorm:"column:email"`
+	UserID    int       `gorm:"column:user_id"`
+	CreatedAt time.Time `gorm:"column:created_at"`
 }
 
 //TableName 对应的表名.

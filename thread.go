@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-19 18:12:33
+ * @Modified    : 2019-09-21 09:12:32
  * @version     : 1.0
  * @Description :
  */
@@ -17,21 +17,21 @@ import (
 
 //Thread 帖子信息.
 type Thread struct {
-	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
-	UUID      string    `gorm:"column:Uuid"`
-	Topic     string    `gorm:"column:Topic"`
-	UserID    int       `gorm:"column:User_id"`
-	CreatedAt time.Time `gorm:"column:Created_at;type:datetime"`
+	ID        int       `gorm:"column:id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:uuid"`
+	Topic     string    `gorm:"column:topic"`
+	UserID    int       `gorm:"column:user_id"`
+	CreatedAt time.Time `gorm:"column:created_at;type:datetime"`
 }
 
 //Post 回复信息.
 type Post struct {
-	ID        int       `gorm:"column:Id;primary_key;auto_increment"`
-	UUID      string    `gorm:"column:Uuid"`
-	Body      string    `gorm:"column:Body"`
-	UserID    int       `gorm:"column:User_id"`
-	ThreadID  int       `gorm:"column:Thread_id"`
-	CreatedAt time.Time `gorm:"column:Created_at;type:datetime"`
+	ID        int       `gorm:"column:id;primary_key;auto_increment"`
+	UUID      string    `gorm:"column:uuid"`
+	Body      string    `gorm:"column:body"`
+	UserID    int       `gorm:"column:user_id"`
+	ThreadID  int       `gorm:"column:thread_id"`
+	CreatedAt time.Time `gorm:"column:created_at;type:datetime"`
 }
 
 //CreatedAtDate 获取帖子创建时间.
