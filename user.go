@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-09-21 09:11:35
+ * @Modified    : 2019-10-22 14:09:44
  * @version     : 1.0
  * @Description :
  */
@@ -43,6 +43,7 @@ func (u *User) TableName() string {
 
 //Create 创建一个新用户.
 func (u *User) Create() (err error) {
+	u.Password = encrypt(u.Password)
 	idb := db.Create(u)
 	err = idb.Error
 	if err != nil {
@@ -89,6 +90,10 @@ func (u *User) Login() (sess Session, err error) {
 
 			return
 		}
+	} else {
+		// 密码错误.
+		logger.Error("password error.")
+		err = errors.New("password error")
 	}
 
 	return
