@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2019-09-20 10:13:17
+ * @Modified    : 2020-03-13 23:52:02
  * @version     : 1.0
  * @Description :
  */
@@ -207,11 +207,32 @@ func NewLogger() gin.HandlerFunc {
 	}
 }
 
+// GinRecoveryMiddleware recovery.
+func GinRecoveryMiddleware() gin.HandlerFunc {
+	return gin.RecoveryWithWriter(logger.Out)
+}
+
+// GinAuthMiddleware check session.
+func GinAuthMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		sess, err := sessionByContext(c)
+		if err != nil {
+			c.Redirect(http.StatusFound, "/login")
+			c.Abort()
+
+			return
+		}
+
+		c.Set("userid", sess.UserID)
+		c.Next()
+	}
+}
+
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	r.Use(NewLogger())
-	r.Use(gin.Recovery())
+	r.Use(GinRecoveryMiddleware())
 	//r.HTMLRender = createMyRender()
 
 	// file.
@@ -224,11 +245,15 @@ func main() {
 	r.GET("/signup", signup)
 	r.POST("/signup_account", signupAccount)
 	r.POST("/authenticate", authenticate)
-
-	r.GET("/thread/new", newThread)
-	r.POST("/thread/create", createThread)
 	r.GET("/thread/read", readThread)
-	r.POST("/thread/post", postThread)
+
+	subRouter := r.Group("/thread")
+	subRouter.Use(GinAuthMiddleware())
+	{
+		subRouter.GET("/new", newThread)
+		subRouter.POST("/create", createThread)
+		subRouter.POST("/post", postThread)
+	}
 
 	// 设置开启gorm日志.
 	db.LogMode(true)
@@ -343,43 +368,33 @@ func authenticate(c *gin.Context) {
 }
 
 func newThread(c *gin.Context) {
-	_, err := sessionByContext(c)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/login")
-	} else {
-		files := []string{"templates/layout.html", "templates/private.navbar.html", "templates/new.thread.html"}
-		execTemplate(c, files, nil)
-	}
+	files := []string{"templates/layout.html", "templates/private.navbar.html", "templates/new.thread.html"}
+	execTemplate(c, files, nil)
 }
 
 func createThread(c *gin.Context) {
-	sess, err := sessionByContext(c)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/login")
-	} else {
-		topic, flag := c.GetPostForm("topic")
-		if !flag {
-			jumptoerror(c, fmt.Sprintf("Failed to get topic: %s", err))
+	topic, flag := c.GetPostForm("topic")
+	if !flag {
+		jumptoerror(c, fmt.Sprintf("Failed to get topic"))
 
-			return
-		}
-
-		thr := Thread{
-			UUID:      CreateUUID(),
-			Topic:     topic,
-			UserID:    sess.UserID,
-			CreatedAt: time.Now(),
-		}
-
-		err = thr.NewThread()
-		if err != nil {
-			jumptoerror(c, fmt.Sprintf("Failed to create thread: %s", err))
-
-			return
-		}
-
-		c.Redirect(http.StatusFound, "/")
+		return
 	}
+
+	thr := Thread{
+		UUID:      CreateUUID(),
+		Topic:     topic,
+		UserID:    c.MustGet("userid").(int),
+		CreatedAt: time.Now(),
+	}
+
+	err := thr.NewThread()
+	if err != nil {
+		jumptoerror(c, fmt.Sprintf("Failed to create thread: %s", err))
+
+		return
+	}
+
+	c.Redirect(http.StatusFound, "/")
 }
 
 func readThread(c *gin.Context) {
@@ -405,13 +420,6 @@ func readThread(c *gin.Context) {
 }
 
 func postThread(c *gin.Context) {
-	s, err := sessionByContext(c)
-	if err != nil {
-		c.Redirect(http.StatusFound, "/login")
-
-		return
-	}
-
 	body, flag := c.GetPostForm("body")
 	if !flag {
 		jumptoerror(c, "data error")
@@ -430,7 +438,7 @@ func postThread(c *gin.Context) {
 		UUID: uuid,
 	}
 
-	err = thr.GetThreadByUUID()
+	err := thr.GetThreadByUUID()
 	if err != nil {
 		jumptoerror(c, fmt.Sprintf("Failed to read thread: %s", err))
 
@@ -439,7 +447,7 @@ func postThread(c *gin.Context) {
 
 	pst := Post{
 		UUID:      CreateUUID(),
-		UserID:    s.UserID,
+		UserID:    c.MustGet("userid").(int),
 		ThreadID:  thr.ID,
 		Body:      body,
 		CreatedAt: time.Now(),
