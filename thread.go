@@ -66,6 +66,7 @@ func (thr *Thread) User() (user User) {
 	return
 }
 
+// NewThread 创建帖子.
 func (thr *Thread) NewThread() (err error) {
 	err = db.Create(thr).Error
 	if err != nil {
@@ -74,11 +75,12 @@ func (thr *Thread) NewThread() (err error) {
 		return
 	}
 
-	logger.Debugf("new thread,id: %d, userid: %d, uuid: %d", thr.ID, thr.UserID, thr.UUID)
+	logger.Debugf("new thread,id: %d, userid: %d, uuid: %s", thr.ID, thr.UserID, thr.UUID)
 
 	return
 }
 
+// GetThreadByUUID 根据UUID获取帖子.
 func (thr *Thread) GetThreadByUUID() (err error) {
 	idb := db.Where("uuid = ?", thr.UUID).First(thr)
 	err = idb.Error
@@ -92,6 +94,7 @@ func (thr *Thread) GetThreadByUUID() (err error) {
 	return
 }
 
+// NewPost 创建回复.
 func (pst *Post) NewPost() (err error) {
 	err = db.Create(pst).Error
 	if err != nil {
@@ -100,7 +103,8 @@ func (pst *Post) NewPost() (err error) {
 		return
 	}
 
-	logger.Debug("new post,id: %d, userid: %d, threadid: %d", pst.ID, pst.UserID, pst.ThreadID)
+	logger.Debugf("new post,id: %d, userid: %d, threadid: %d",
+		pst.ID, pst.UserID, pst.ThreadID)
 
 	return
 }

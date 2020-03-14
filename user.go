@@ -107,6 +107,7 @@ func (u *User) userByEmail() (user User, err error) {
 	return
 }
 
+// Check 检查.
 func (s *Session) Check() bool {
 	idb := db.Where("uuid = ?", s.UUID).First(s)
 	err := idb.Error
@@ -123,6 +124,7 @@ func (s *Session) Check() bool {
 	return 1 == idb.RowsAffected
 }
 
+// GetUser 获取用户.
 func (s *Session) GetUser() (u User, err error) {
 	u = User{}
 	idb := db.Where("id = ?", s.UserID).First(&u)
@@ -137,6 +139,7 @@ func (s *Session) GetUser() (u User, err error) {
 	return
 }
 
+// DelByUUID 根据uuid删除session.
 func (s *Session) DelByUUID() (err error) {
 	err = db.Where("uuid = ?", s.UUID).Delete(Session{}).Error
 	if err != nil {
