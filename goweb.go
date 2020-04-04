@@ -32,7 +32,7 @@ func createMyRender() multitemplate.Renderer {
 
 // GinRecoveryMiddleware recovery.
 func GinRecoveryMiddleware() gin.HandlerFunc {
-	return gin.RecoveryWithWriter(logger.Out)
+	return gin.RecoveryWithWriter(logWriter)
 }
 
 // GinAuthMiddleware check session.

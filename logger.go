@@ -13,6 +13,7 @@ package main
 import (
 	"database/sql/driver"
 	"fmt"
+	"io"
 	"os"
 	"reflect"
 	"regexp"
@@ -28,6 +29,7 @@ import (
 
 // logger 日志对象.
 var logger *logrus.Logger
+var logWriter io.Writer
 
 var (
 	sqlRegexp                = regexp.MustCompile(`\?`)
@@ -143,7 +145,7 @@ func NewLogger(logName string) error {
 	logger.SetLevel(logrus.DebugLevel)
 
 	// 设置分割规则.
-	logWriter, err := rotatelogs.New(
+	logWriter, err = rotatelogs.New(
 		// 分割后的文件名.
 		logName+".%Y-%m-%d.log",
 
