@@ -13,19 +13,27 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"time"
 
-	"github.com/gin-contrib/multitemplate"
+	"github.com/shenbaise9527/goweb/multinamedtemplate"
+
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/render"
 	uuid "github.com/satori/go.uuid"
 )
 
-func createMyRender() multitemplate.Renderer {
-	r := multitemplate.NewRenderer()
-	r.AddFromFiles("public_index", "templates/layout.html", "templates/public.navbar.html", "templates/index.html")
-	r.AddFromFiles("err", "templates/layout.html", "templates/public.navbar.html", "templates/error.html")
+func createMyRender() render.HTMLRender {
+	r := multinamedtemplate.NewRender()
+	r.AddFromFilesByNamed("public_index", "layout", "templates/layout.html", "templates/public.navbar.html", "templates/index.html")
+	r.AddFromFilesByNamed("private_index", "layout", "templates/layout.html", "templates/private.navbar.html", "templates/index.html")
+	r.AddFromFilesByNamed("login", "layout", "templates/layout.html", "templates/public.navbar.html", "templates/login.html")
+	r.AddFromFilesByNamed("public_error", "layout", "templates/layout.html", "templates/public.navbar.html", "templates/error.html")
+	r.AddFromFilesByNamed("private_error", "layout", "templates/layout.html", "templates/private.navbar.html", "templates/error.html")
+	r.AddFromFilesByNamed("signup", "layout", "templates/layout.html", "templates/public.navbar.html", "templates/signup.html")
+	r.AddFromFilesByNamed("newthread", "layout", "templates/layout.html", "templates/private.navbar.html", "templates/new.thread.html")
+	r.AddFromFilesByNamed("public_thread", "layout", "templates/layout.html", "templates/public.navbar.html", "templates/public.thread.html")
+	r.AddFromFilesByNamed("private_thread", "layout", "templates/layout.html", "templates/private.navbar.html", "templates/private.thread.html")
 
 	return r
 }
@@ -63,7 +71,7 @@ func main() {
 	r := gin.New()
 	r.Use(GinLoggerMiddleware())
 	r.Use(GinRecoveryMiddleware())
-	//r.HTMLRender = createMyRender()
+	r.HTMLRender = createMyRender()
 
 	// file.
 	r.Static("/static", "./public")
@@ -107,20 +115,17 @@ func main() {
 //CreateUUID 创建UUID.
 func CreateUUID() string {
 	u4 := uuid.NewV4()
-	return fmt.Sprintf("%s", u4)
+	return u4.String()
 }
 
 func errmsg(c *gin.Context) {
 	_, err := sessionByContext(c)
 	msg := c.Query("msg")
-	var files []string
 	if err != nil {
-		files = []string{"templates/layout.html", "templates/public.navbar.html", "templates/error.html"}
+		c.HTML(http.StatusOK, "public_error", msg)
 	} else {
-		files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/error.html"}
+		c.HTML(http.StatusOK, "private_error", msg)
 	}
-
-	execTemplate(c, files, msg)
 }
 
 func index(c *gin.Context) {
@@ -131,36 +136,30 @@ func index(c *gin.Context) {
 		return
 	}
 
-	//c.HTML(http.StatusOK, "public_index", threads)
 	_, err = sessionByContext(c)
-	var files []string
 	if err != nil {
-		files = []string{"templates/layout.html", "templates/public.navbar.html", "templates/index.html"}
+		c.HTML(http.StatusOK, "public_index", threads)
 	} else {
-		files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/index.html"}
+		c.HTML(http.StatusOK, "private_index", threads)
 	}
-
-	execTemplate(c, files, threads)
 }
 
 func login(c *gin.Context) {
-	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/login.html"}
-	execTemplate(c, files, nil)
+	c.HTML(http.StatusOK, "login", nil)
 }
 
 func logout(c *gin.Context) {
 	s, err := sessionByContext(c)
 	if err != http.ErrNoCookie {
 		logger.Warnf("Failed to get cookie: %s", err)
-		s.DelByUUID()
+		_ = s.DelByUUID()
 	}
 
 	c.Redirect(http.StatusFound, "/")
 }
 
 func signup(c *gin.Context) {
-	files := []string{"templates/layout.html", "templates/public.navbar.html", "templates/signup.html"}
-	execTemplate(c, files, nil)
+	c.HTML(http.StatusOK, "signup", nil)
 }
 
 func signupAccount(c *gin.Context) {
@@ -198,14 +197,13 @@ func authenticate(c *gin.Context) {
 }
 
 func newThread(c *gin.Context) {
-	files := []string{"templates/layout.html", "templates/private.navbar.html", "templates/new.thread.html"}
-	execTemplate(c, files, nil)
+	c.HTML(http.StatusOK, "newthread", nil)
 }
 
 func createThread(c *gin.Context) {
 	topic, flag := c.GetPostForm("topic")
 	if !flag {
-		jumptoerror(c, fmt.Sprintf("Failed to get topic"))
+		jumptoerror(c, "Failed to get topic")
 
 		return
 	}
@@ -238,14 +236,11 @@ func readThread(c *gin.Context) {
 		jumptoerror(c, fmt.Sprintf("Failed to read thread: %s", err))
 	} else {
 		_, err = sessionByContext(c)
-		var files []string
 		if err != nil {
-			files = []string{"templates/layout.html", "templates/public.navbar.html", "templates/public.thread.html"}
+			c.HTML(http.StatusOK, "public_thread", &thr)
 		} else {
-			files = []string{"templates/layout.html", "templates/private.navbar.html", "templates/private.thread.html"}
+			c.HTML(http.StatusOK, "private_thread", &thr)
 		}
-
-		execTemplate(c, files, &thr)
 	}
 }
 
@@ -296,11 +291,6 @@ func postThread(c *gin.Context) {
 
 func jumptoerror(c *gin.Context, msg string) {
 	c.Redirect(http.StatusFound, fmt.Sprintf("/err?msg=%s", msg))
-}
-
-func execTemplate(c *gin.Context, files []string, data interface{}) {
-	t := template.Must(template.ParseFiles(files...))
-	t.ExecuteTemplate(c.Writer, "layout", data)
 }
 
 func sessionByContext(c *gin.Context) (sess Session, err error) {

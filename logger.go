@@ -122,8 +122,6 @@ func (*GormLogger) Print(values ...interface{}) {
 
 		logger.Debug(messages)
 	}
-
-	return
 }
 
 // NewLogger 创建日志对象.
@@ -145,7 +143,7 @@ func NewLogger(logName string) error {
 	logger.SetLevel(logrus.DebugLevel)
 
 	// 设置分割规则.
-	logWriter, err = rotatelogs.New(
+	logWriter, _ = rotatelogs.New(
 		// 分割后的文件名.
 		logName+".%Y-%m-%d.log",
 
