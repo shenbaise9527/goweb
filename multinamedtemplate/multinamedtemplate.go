@@ -12,7 +12,7 @@ type multiRender struct {
 	tmpl *template.Template
 }
 
-// 命名的多模板.
+// NamedMultiRender 命名的多模板.
 type NamedMultiRender map[string]multiRender
 
 // NewRender 创建render.
@@ -25,7 +25,7 @@ func (nr NamedMultiRender) AddFromFiles(tmplname string, files ...string) *templ
 	return nr.AddFromFilesByNamed(tmplname, "", files...)
 }
 
-// AddFromFiles 根据模板文件创建模板对象.
+// AddFromFilesByNamed 根据模板文件创建模板对象.
 func (nr NamedMultiRender) AddFromFilesByNamed(
 	tmplname, definedname string, files ...string) *template.Template {
 	tmpl := template.Must(template.ParseFiles(files...))
