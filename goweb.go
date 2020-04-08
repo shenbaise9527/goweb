@@ -203,7 +203,7 @@ func newThread(c *gin.Context) {
 func createThread(c *gin.Context) {
 	topic, flag := c.GetPostForm("topic")
 	if !flag {
-		jumptoerror(c, fmt.Sprintf("Failed to get topic"))
+		jumptoerror(c, "Failed to get topic")
 
 		return
 	}
