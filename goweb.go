@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2020-05-20 21:32:25
+ * @Modified    : 2020-05-20 21:41:26
  * @version     : 1.0
  * @Description :
  */
@@ -61,9 +61,18 @@ func GinAuthMiddleware() gin.HandlerFunc {
 }
 
 func main() {
+	// 初始化日志.
 	err := logger.NewLogger("web.log")
 	if err != nil {
 		fmt.Println(err.Error())
+
+		return
+	}
+
+	// 初始化数据库连接.
+	err = NewDB()
+	if err != nil {
+		logger.Errorf("open db failed[%s].", err.Error())
 
 		return
 	}
