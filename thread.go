@@ -4,7 +4,7 @@
  * @File        : thread.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-03 22:48:16
- * @Modified    : 2019-09-21 09:12:32
+ * @Modified    : 2020-05-20 21:35:01
  * @version     : 1.0
  * @Description :
  */
@@ -13,6 +13,8 @@ package main
 import (
 	"errors"
 	"time"
+
+	"github.com/shenbaise9527/goweb/logger"
 )
 
 //Thread 帖子信息.
@@ -125,7 +127,7 @@ func (pst *Post) User() (user User) {
 func Threads() (threads []Thread, err error) {
 	idb := db.Order("created_at desc").Find(&threads)
 	if idb.RecordNotFound() {
-		logger.Debug("cant find threads")
+		logger.Debugf("cant find threads")
 		err = nil
 	} else {
 		err = idb.Error

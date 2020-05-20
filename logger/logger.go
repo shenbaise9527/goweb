@@ -4,11 +4,11 @@
  * @File        : logger.go
  * @Author      : shenbaise9527
  * @Create      : 2020-03-14 22:59:28
- * @Modified    : 2020-03-14 23:05:03
+ * @Modified    : 2020-05-20 21:32:59
  * @version     : 1.0
  * @Description :
  */
-package main
+package logger
 
 import (
 	"database/sql/driver"
@@ -21,17 +21,15 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/gin-gonic/gin"
 	rotatelogs "github.com/lestrrat/go-file-rotatelogs"
 	"github.com/rifflock/lfshook"
 	"github.com/sirupsen/logrus"
 )
 
 // logger 日志对象.
-var logger *logrus.Logger
-var logWriter io.Writer
-
 var (
+	logger                   *logrus.Logger
+	logWriter                io.Writer
 	sqlRegexp                = regexp.MustCompile(`\?`)
 	numericPlaceHolderRegexp = regexp.MustCompile(`\$\d+`)
 )
@@ -179,17 +177,32 @@ func NewLogger(logName string) error {
 	return nil
 }
 
-//GinLoggerMiddleware 生成gin的日志插件.
-func GinLoggerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		c.Next()
-		end := time.Now()
-		latency := end.Sub(start)
-		path := c.Request.URL.RequestURI()
-		clientIP := c.ClientIP()
-		method := c.Request.Method
-		statusCode := c.Writer.Status()
-		logger.Infof("|%3d|%13v|%15s|%s %s|", statusCode, latency, clientIP, method, path)
-	}
+// GetLoggerWriter 获取日志writer
+func GetLoggerWriter() io.Writer {
+	return logWriter
+}
+
+// Tracef 打印日志.
+func Tracef(format string, args ...interface{}) {
+	logger.Tracef(format, args...)
+}
+
+// Debugf 打印日志.
+func Debugf(format string, args ...interface{}) {
+	logger.Debugf(format, args...)
+}
+
+// Infof 打印日志.
+func Infof(format string, args ...interface{}) {
+	logger.Infof(format, args...)
+}
+
+// Warnf 打印日志.
+func Warnf(format string, args ...interface{}) {
+	logger.Warnf(format, args...)
+}
+
+// Errorf 打印日志.
+func Errorf(format string, args ...interface{}) {
+	logger.Errorf(format, args...)
 }

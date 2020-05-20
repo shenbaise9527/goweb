@@ -4,7 +4,7 @@
  * @File        : goweb.go
  * @Author      : shenbaise9527
  * @Create      : 2019-08-14 22:00:51
- * @Modified    : 2020-03-14 23:09:04
+ * @Modified    : 2020-05-20 21:32:25
  * @version     : 1.0
  * @Description :
  */
@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/shenbaise9527/goweb/logger"
 	"github.com/shenbaise9527/goweb/multinamedtemplate"
 
 	"github.com/gin-gonic/gin"
@@ -40,7 +41,7 @@ func createMyRender() render.HTMLRender {
 
 // GinRecoveryMiddleware recovery.
 func GinRecoveryMiddleware() gin.HandlerFunc {
-	return gin.RecoveryWithWriter(logWriter)
+	return gin.RecoveryWithWriter(logger.GetLoggerWriter())
 }
 
 // GinAuthMiddleware check session.
@@ -60,7 +61,7 @@ func GinAuthMiddleware() gin.HandlerFunc {
 }
 
 func main() {
-	err := NewLogger("web.log")
+	err := logger.NewLogger("web.log")
 	if err != nil {
 		fmt.Println(err.Error())
 
@@ -97,7 +98,7 @@ func main() {
 	db.LogMode(true)
 
 	// 设置gorm的日志插件.
-	db.SetLogger(&GormLogger{})
+	db.SetLogger(&logger.GormLogger{})
 
 	// 删除所有session.
 	db.Delete(&Session{})
@@ -308,4 +309,19 @@ func sessionByContext(c *gin.Context) (sess Session, err error) {
 	}
 
 	return
+}
+
+//GinLoggerMiddleware 生成gin的日志插件.
+func GinLoggerMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		end := time.Now()
+		latency := end.Sub(start)
+		path := c.Request.URL.RequestURI()
+		clientIP := c.ClientIP()
+		method := c.Request.Method
+		statusCode := c.Writer.Status()
+		logger.Infof("|%3d|%13v|%15s|%s %s|", statusCode, latency, clientIP, method, path)
+	}
 }

@@ -4,7 +4,7 @@
  * @File        : user.go
  * @Author      : shenbaise9527
  * @Create      : 2019-09-07 18:36:21
- * @Modified    : 2019-10-22 14:09:44
+ * @Modified    : 2020-05-20 21:34:47
  * @version     : 1.0
  * @Description :
  */
@@ -15,6 +15,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/shenbaise9527/goweb/logger"
 )
 
 //User 用户信息.
@@ -92,7 +94,7 @@ func (u *User) Login() (sess Session, err error) {
 		}
 	} else {
 		// 密码错误.
-		logger.Error("password error.")
+		logger.Errorf("password error.")
 		err = errors.New("password error")
 	}
 
